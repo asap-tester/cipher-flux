@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIPHER FLUX</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #04060f;
+    --panel: #080d1a;
+    --border: #1a2540;
+    --accent: #00f5c4;
+    --accent2: #ff3c6e;
+    --accent3: #7b61ff;
+    --warn: #ffb020;
+    --text: #c8d8f0;
+    --dim: #4a5a7a;
+    --glow: 0 0 20px rgba(0,245,196,0.4);
+    --glow2: 0 0 20px rgba(255,60,110,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,196,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,196,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridMove 20s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes gridMove {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(40px); }
+  }
+
+  /* Scanline */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  #game-wrap {
+    width: min(700px, 96vw);
+    position: relative;
+    z-index: 10;
+  }
+
+  /* SCREENS */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ===== INTRO SCREEN ===== */
+  #intro {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(2.5rem, 8vw, 4.5rem);
+    letter-spacing: 0.15em;
+    background: linear-gradient(135deg, var(--accent), var(--accent3), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: logoPulse 3s ease-in-out infinite;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  @keyframes logoPulse {
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 20px rgba(0,245,196,0.5)); }
+    50% { filter: brightness(1.2) drop-shadow(0 0 40px rgba(0,245,196,0.8)); }
+  }
+
+  .tagline {
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 50px;
+  }
+
+  .level-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+
+  .level-card {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 16px 12px;
+    border-radius: 4px;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+
+  .level-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .level-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+  }
+  .level-card.c1::before { background: var(--accent); }
+  .level-card.c2::before { background: var(--accent3); }
+  .level-card.c3::before { background: var(--accent2); }
+  .level-card.c4::before { background: var(--warn); }
+
+  .lc-num { font-family: 'Orbitron', monospace; font-size: 0.65rem; color: var(--dim); margin-bottom: 4px; }
+  .lc-name { font-size: 0.8rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .lc-desc { font-size: 0.65rem; color: var(--dim); line-height: 1.5; }
+
+  .start-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    padding: 16px 60px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+    border-radius: 2px;
+  }
+
+  .start-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    z-index: -1;
+  }
+
+  .start-btn:hover { color: var(--bg); box-shadow: var(--glow); }
+  .start-btn:hover::before { transform: translateX(0); }
+
+  /* ===== GAME SCREEN ===== */
+  #game { padding: 20px 0; }
+
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 4px;
+  }
+
+  .hud-item { text-align: center; }
+  .hud-label { font-size: 0.55rem; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; }
+  .hud-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.2rem;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .hud-val.danger { color: var(--accent2); animation: blink 0.5s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .phase-banner {
+    text-align: center;
+    margin-bottom: 16px;
+    padding: 8px;
+    border-radius: 2px;
+  }
+  .phase-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    color: var(--accent3);
+    text-transform: uppercase;
+  }
+  .phase-rule {
+    font-size: 0.7rem;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+
+  /* Timer bar */
+  .timer-bar-wrap {
+    height: 3px;
+    background: var(--border);
+    margin-bottom: 24px;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .timer-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    transition: width 0.1s linear;
+    border-radius: 2px;
+  }
+  .timer-bar.low { background: var(--accent2); }
+
+  /* Puzzle area */
+  .puzzle-area {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px 20px;
+    margin-bottom: 20px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .puzzle-prompt {
+    font-size: 0.75rem;
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  /* Sequence display */
+  .sequence-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .seq-cell {
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    position: relative;
+    transition: all 0.3s;
+    flex-shrink: 0;
+  }
+
+  .seq-cell.hidden {
+    background: rgba(0,245,196,0.05);
+    border-color: var(--accent);
+    border-style: dashed;
+    color: var(--dim);
+    font-size: 1.8rem;
+  }
+
+  .seq-cell.shape-cell { font-size: 1.8rem; }
+
+  /* Answers */
+  .answer-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+
+  .ans-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    padding: 16px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+    text-align: center;
+    font-weight: 600;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ans-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,245,196,0.05);
+    transform: translateY(-2px);
+    box-shadow: var(--glow);
+  }
+
+  .ans-btn.correct {
+    border-color: var(--accent);
+    background: rgba(0,245,196,0.15);
+    color: var(--accent);
+    animation: correctPop 0.4s ease;
+  }
+
+  .ans-btn.wrong {
+    border-color: var(--accent2);
+    background: rgba(255,60,110,0.15);
+    color: var(--accent2);
+    animation: shake 0.3s ease;
+  }
+
+  @keyframes correctPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  /* Feedback flash */
+  .feedback-flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .feedback-flash.correct-flash { background: rgba(0,245,196,0.08); }
+  .feedback-flash.wrong-flash { background: rgba(255,60,110,0.08); }
+  .feedback-flash.show { opacity: 1; }
+
+  /* Combo */
+  .combo-display {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    color: var(--warn);
+    letter-spacing: 0.2em;
+    text-align: center;
+    height: 20px;
+  }
+
+  /* Level up */
+  .level-up-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4,6,15,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .level-up-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .lu-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: var(--glow);
+    animation: luPulse 0.8s ease infinite alternate;
+    margin-bottom: 12px;
+  }
+  @keyframes luPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.05); }
+  }
+  .lu-sub {
+    font-size: 0.8rem;
+    color: var(--dim);
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+  }
+  .lu-new-rule {
+    font-size: 0.85rem;
+    color: var(--accent3);
+    text-align: center;
+    max-width: 400px;
+    margin-bottom: 30px;
+    line-height: 1.6;
+    padding: 16px;
+    border: 1px solid var(--accent3);
+    border-radius: 4px;
+  }
+  .lu-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    padding: 14px 40px;
+    cursor: pointer;
+    border-radius: 2px;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+  .lu-btn:hover { filter: brightness(1.2); transform: scale(1.03); }
+
+  /* Game Over */
+  #gameover {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .go-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.5rem, 5vw, 2.5rem);
+    font-weight: 900;
+    color: var(--accent2);
+    text-shadow: var(--glow2);
+    margin-bottom: 8px;
+  }
+
+  .go-score-box {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 24px;
+    margin: 24px 0;
+    border-radius: 4px;
+  }
+
+  .go-stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .go-stat:last-child { border-bottom: none; }
+  .go-stat-label { color: var(--dim); font-size: 0.75rem; letter-spacing: 0.1em; }
+  .go-stat-val { font-family: 'Orbitron', monospace; color: var(--accent); font-size: 0.9rem; }
+
+  .iq-badge {
+    display: inline-block;
+    padding: 12px 32px;
+    border-radius: 4px;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 1.1rem;
+    margin: 16px 0;
+    letter-spacing: 0.1em;
+  }
+  .iq-bronze { background: rgba(205,127,50,0.2); border: 1px solid #cd7f32; color: #cd7f32; }
+  .iq-silver { background: rgba(192,192,192,0.2); border: 1px solid #c0c0c0; color: #c0c0c0; }
+  .iq-gold { background: rgba(255,215,0,0.2); border: 1px solid #ffd700; color: #ffd700; }
+  .iq-diamond { background: rgba(0,245,196,0.2); border: 1px solid var(--accent); color: var(--accent); }
+
+  .restart-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    padding: 14px 40px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    margin: 8px;
+  }
+  .restart-btn:hover { background: var(--accent); color: var(--bg); }
+
+  /* Lives */
+  .lives-display { display: flex; gap: 6px; }
+  .life-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent2);
+    transition: all 0.3s;
+  }
+  .life-dot.dead { background: var(--border); }
+
+  /* Particles */
+  .particle {
+    position: fixed;
+    pointer-events: none;
+    font-family: 'Orbitron', monospace;
+    font-size: 1.2rem;
+    font-weight: 700;
+    z-index: 800;
+    animation: particleFly 0.8s ease-out forwards;
+  }
+  @keyframes particleFly {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrap">
+
+  <!-- INTRO SCREEN -->
+  <div id="intro" class="screen active">
+    <div class="logo">CIPHER FLUX</div>
+    <div class="tagline">Neural Pattern Engine · Adaptive Cognition</div>
+
+    <div class="level-cards">
+      <div class="level-card c1">
+        <div class="lc-num">PHASE 01–05</div>
+        <div class="lc-name">Pattern Recognition</div>
+        <div class="lc-desc">Find the missing element in number & shape sequences</div>
+      </div>
+      <div class="level-card c2">
+        <div class="lc-num">PHASE 06–10</div>
+        <div class="lc-name">Dual-Rule Logic</div>
+        <div class="lc-desc">Two simultaneous cipher rules. Both must be satisfied.</div>
+      </div>
+      <div class="level-card c3">
+        <div class="lc-num">PHASE 11–15</div>
+        <div class="lc-name">Recursive Chains</div>
+        <div class="lc-desc">Rules that transform based on previous answers</div>
+      </div>
+      <div class="level-card c4">
+        <div class="lc-num">PHASE 16+</div>
+        <div class="lc-name">Flux State</div>
+        <div class="lc-desc">Rules shift mid-sequence. No anchors. Pure cognition.</div>
+      </div>
+    </div>
+
+    <button class="start-btn" onclick="startGame()">INITIALIZE</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game" class="screen">
+    <div class="hud">
+      <div class="hud-item">
+        <div class="hud-label">Score</div>
+        <div class="hud-val" id="hud-score">0</div>
+      </div>
+      <div class="hud-item">
+        <div class="hud-label">Phase</div>
+        <div class="hud-val" id="hud-level">1</div>
+      </div>
+      <div class="hud-item">
+        <div class="hud-label">Streak</div>
+        <div class="hud-val" id="hud-streak">0</div>
+      </div>
+      <div class="hud-item">
+        <div class="hud-label">Lives</div>
+        <div class="lives-display" id="hud-lives"></div>
+      </div>
+      <div class="hud-item">
+        <div class="hud-label">Time</div>
+        <div class="hud-val" id="hud-time">15</div>
+      </div>
+    </div>
+
+    <div class="timer-bar-wrap">
+      <div class="timer-bar" id="timer-bar"></div>
+    </div>
+
+    <div class="phase-banner">
+      <div class="phase-name" id="phase-name">PATTERN RECOGNITION</div>
+      <div class="phase-rule" id="phase-rule">Find the missing element</div>
+    </div>
+
+    <div class="puzzle-area" id="puzzle-area">
+      <div class="puzzle-prompt" id="puzzle-prompt">Loading...</div>
+      <div class="sequence-row" id="sequence-display"></div>
+    </div>
+
+    <div class="combo-display" id="combo-display"></div>
+
+    <div class="answer-grid" id="answer-grid"></div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameover" class="screen">
+    <div class="go-title">FLUX TERMINATED</div>
+    <div id="iq-badge-display"></div>
+
+    <div class="go-score-box">
+      <div class="go-stat">
+        <span class="go-stat-label">FINAL SCORE</span>
+        <span class="go-stat-val" id="go-score">0</span>
+      </div>
+      <div class="go-stat">
+        <span class="go-stat-label">MAX PHASE REACHED</span>
+        <span class="go-stat-val" id="go-level">1</span>
+      </div>
+      <div class="go-stat">
+        <span class="go-stat-label">PUZZLES SOLVED</span>
+        <span class="go-stat-val" id="go-solved">0</span>
+      </div>
+      <div class="go-stat">
+        <span class="go-stat-label">BEST STREAK</span>
+        <span class="go-stat-val" id="go-streak">0</span>
+      </div>
+      <div class="go-stat">
+        <span class="go-stat-label">ACCURACY</span>
+        <span class="go-stat-val" id="go-accuracy">0%</span>
+      </div>
+    </div>
+
+    <button class="restart-btn" onclick="startGame()">REINITIALIZE</button>
+    <button class="restart-btn" onclick="showIntro()" style="border-color:var(--dim);color:var(--dim)">MENU</button>
+  </div>
+
+</div>
+
+<!-- Level Up Overlay -->
+<div class="level-up-overlay" id="lu-overlay">
+  <div class="lu-title" id="lu-title">PHASE UP</div>
+  <div class="lu-sub" id="lu-phase-label">ENTERING PHASE 2</div>
+  <div class="lu-new-rule" id="lu-new-rule">New rule unlocked</div>
+  <button class="lu-btn" onclick="dismissLevelUp()">ENGAGE ›</button>
+</div>
+
+<!-- Feedback flash -->
+<div class="feedback-flash" id="feedback-flash"></div>
+
+<script>
+// =================== GAME ENGINE ===================
+
+const PHASES = [
+  // Phase 1-5: Pure number sequences
+  { name: "ARITHMETIC FLUX", rule: "Find the missing number in the arithmetic sequence", type: "arithmetic", time: 15 },
+  { name: "GEOMETRIC FLUX", rule: "Multiply or divide — find the pattern", type: "geometric", time: 14 },
+  { name: "FIBONACCI FLUX", rule: "Each number = sum of previous two", type: "fibonacci_like", time: 14 },
+  { name: "PRIME FLUX", rule: "Prime numbers hide in the noise — identify the odd one out", type: "prime_oddout", time: 13 },
+  { name: "MODULAR FLUX", rule: "Numbers wrap around — modular arithmetic", type: "modular", time: 13 },
+  // Phase 6-10: Shape + logic
+  { name: "SHAPE CIPHER", rule: "Shapes follow a rotation rule — what comes next?", type: "shape_sequence", time: 12 },
+  { name: "DUAL CIPHER", rule: "Two rules active: number value AND position parity", type: "dual_rule", time: 12 },
+  { name: "MIRROR FLUX", rule: "The sequence mirrors itself — find the reflection point", type: "mirror", time: 11 },
+  { name: "SKIP FLUX", rule: "Every N steps, the rule shifts — track the skip", type: "skip_rule", time: 11 },
+  { name: "NESTED FLUX", rule: "Inner and outer sequences — both must resolve", type: "nested", time: 10 },
+  // Phase 11+: Advanced
+  { name: "CHAOS CIPHER", rule: "Alternating rules — odd positions and even positions differ", type: "alternating", time: 10 },
+  { name: "RECURSIVE FLUX", rule: "Each element is a function of the previous answer", type: "recursive", time: 9 },
+  { name: "INVERSE CIPHER", rule: "The rule runs BACKWARDS — decode in reverse", type: "inverse", time: 9 },
+  { name: "COMPOUND FLUX", rule: "Three rules in play simultaneously", type: "compound", time: 8 },
+  { name: "FLUX STATE", rule: "Rule changes every 3 elements — track the shift", type: "flux_state", time: 8 },
+];
+
+const SHAPES = ['◆', '●', '▲', '■', '★', '⬟', '⬡', '⬢', '◯', '▼'];
+const SHAPE_NAMES = ['diamond', 'circle', 'triangle', 'square', 'star', 'pentagon', 'hexagon', 'filled-hex', 'ring', 'inv-triangle'];
+
+let state = {
+  score: 0,
+  level: 1,
+  streak: 0,
+  bestStreak: 0,
+  lives: 3,
+  totalAnswered: 0,
+  totalCorrect: 0,
+  solved: 0,
+  phaseProgress: 0, // correct answers in current phase
+  correctPerPhase: 5,
+  timeLeft: 15,
+  maxTime: 15,
+  timerInterval: null,
+  locked: false,
+  currentAnswer: null,
+  puzzle: null
+};
+
+function getPhase() {
+  return PHASES[Math.min(state.level - 1, PHASES.length - 1)];
+}
+
+function showIntro() {
+  showScreen('intro');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startGame() {
+  state = {
+    score: 0, level: 1, streak: 0, bestStreak: 0, lives: 3,
+    totalAnswered: 0, totalCorrect: 0, solved: 0, phaseProgress: 0,
+    correctPerPhase: 5, timeLeft: 15, maxTime: 15,
+    timerInterval: null, locked: false, currentAnswer: null, puzzle: null
+  };
+  showScreen('game');
+  updateHUD();
+  nextPuzzle();
+}
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-level').textContent = state.level;
+  document.getElementById('hud-streak').textContent = state.streak;
+
+  const livesEl = document.getElementById('hud-lives');
+  livesEl.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const d = document.createElement('div');
+    d.className = 'life-dot' + (i >= state.lives ? ' dead' : '');
+    livesEl.appendChild(d);
+  }
+}
+
+// =================== PUZZLE GENERATORS ===================
+
+function generatePuzzle() {
+  const phase = getPhase();
+  const type = phase.type;
+
+  switch(type) {
+    case 'arithmetic': return genArithmetic();
+    case 'geometric': return genGeometric();
+    case 'fibonacci_like': return genFibonacci();
+    case 'prime_oddout': return genPrimeOddOut();
+    case 'modular': return genModular();
+    case 'shape_sequence': return genShapeSequence();
+    case 'dual_rule': return genDualRule();
+    case 'mirror': return genMirror();
+    case 'skip_rule': return genSkipRule();
+    case 'nested': return genNested();
+    case 'alternating': return genAlternating();
+    case 'recursive': return genRecursive();
+    case 'inverse': return genInverse();
+    case 'compound': return genCompound();
+    case 'flux_state': return genFluxState();
+    default: return genArithmetic();
+  }
+}
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function makeOptions(correct, min, max, isShape = false) {
+  const opts = new Set([correct]);
+  while (opts.size < 4) {
+    if (isShape) {
+      opts.add(SHAPES[rand(0, SHAPES.length - 1)]);
+    } else {
+      let v = correct + rand(-8, 8);
+      if (v === correct) v = correct + (Math.random() < 0.5 ? 1 : -1);
+      if (v < min) v = correct + rand(1, 4);
+      if (v > max) v = correct - rand(1, 4);
+      opts.add(v);
+    }
+  }
+  return shuffle([...opts]);
+}
+
+function genArithmetic() {
+  const step = rand(-10, 10) || 2;
+  const start = rand(1, 20);
+  const len = 6;
+  const seq = Array.from({length: len}, (_, i) => start + i * step);
+  const hiddenIdx = rand(2, len - 1);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, -50, 200).map(String),
+    prompt: `Complete the sequence`,
+    type: 'number'
+  };
+}
+
+function genGeometric() {
+  const ratio = [2, 3, 4, 0.5][rand(0, 3)];
+  const start = rand(1, 8);
+  const len = 5;
+  const seq = Array.from({length: len}, (_, i) => Math.round(start * Math.pow(ratio, i)));
+  const hiddenIdx = rand(1, len - 1);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 10000).map(String),
+    prompt: `Multiply or divide — find the next`,
+    type: 'number'
+  };
+}
+
+function genFibonacci() {
+  const a = rand(1, 5), b = rand(1, 5);
+  const seq = [a, b];
+  for (let i = 2; i < 7; i++) seq.push(seq[i-1] + seq[i-2]);
+  const hiddenIdx = rand(3, 6);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 500).map(String),
+    prompt: `Each = sum of two before it`,
+    type: 'number'
+  };
+}
+
+function genPrimeOddOut() {
+  function isPrime(n) {
+    if (n < 2) return false;
+    for (let i = 2; i <= Math.sqrt(n); i++) if (n % i === 0) return false;
+    return true;
+  }
+  const primes = [];
+  for (let n = 2; n < 60; n++) if (isPrime(n)) primes.push(n);
+  const selected = shuffle(primes).slice(0, 3);
+  const composites = [4,6,8,9,10,12,14,15,16,18,20,21,22,24,25];
+  const oddOne = shuffle(composites)[0];
+  const allNums = shuffle([...selected, oddOne]);
+  return {
+    display: allNums.map(v => ({ val: String(v), hidden: false })),
+    correct: String(oddOne),
+    options: allNums.map(String),
+    prompt: `Which is NOT prime?`,
+    type: 'number',
+    isOddOut: true
+  };
+}
+
+function genModular() {
+  const mod = rand(3, 7);
+  const base = rand(1, 10);
+  const len = 5;
+  const seq = Array.from({length: len}, (_, i) => ((base + i * rand(2, 5)) % mod));
+  const hiddenIdx = rand(2, len - 1);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: Array.from({length: 4}, (_, i) => String(i % mod)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 4),
+    prompt: `Modulo ${mod} sequence — find the gap`,
+    type: 'number'
+  };
+}
+
+function genShapeSequence() {
+  const shapePool = SHAPES.slice(0, 5);
+  const pattern = [rand(0, 4), rand(0, 4), rand(0, 4)].map(i => shapePool[i]);
+  while (pattern[1] === pattern[0]) pattern[1] = shapePool[rand(0, 4)];
+  while (pattern[2] === pattern[1] || pattern[2] === pattern[0]) pattern[2] = shapePool[rand(0, 4)];
+  const full = [...pattern, pattern[0], pattern[1], '?'];
+  const correct = pattern[2];
+  const display = full.map((v, i) => ({ val: v, hidden: i === full.length - 1 }));
+  return {
+    display,
+    correct,
+    options: makeOptions(correct, 0, 0, true),
+    prompt: `What shape completes the pattern?`,
+    type: 'shape'
+  };
+}
+
+function genDualRule() {
+  // Even positions: +step1, Odd positions: *step2
+  const step1 = rand(2, 5);
+  const base = rand(2, 8);
+  const len = 6;
+  const seq = [];
+  let ev = base, od = base + step1;
+  for (let i = 0; i < len; i++) {
+    if (i % 2 === 0) { seq.push(ev); ev += step1 * 2; }
+    else { seq.push(od); od += step1 * 2; }
+  }
+  const hiddenIdx = rand(2, len - 1);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 200).map(String),
+    prompt: `Even & odd positions follow different rules`,
+    type: 'number'
+  };
+}
+
+function genMirror() {
+  const half = [rand(1, 9), rand(1, 9), rand(1, 9)];
+  const seq = [...half, ...half.reverse()];
+  const hiddenIdx = rand(3, 5);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 1, 20).map(String),
+    prompt: `Sequence mirrors itself — find the reflection`,
+    type: 'number'
+  };
+}
+
+function genSkipRule() {
+  const step = rand(2, 4);
+  const seq = [];
+  let v = rand(1, 10);
+  for (let i = 0; i < 7; i++) {
+    seq.push(v);
+    v += (i % 3 === 2) ? step * 2 : step;
+  }
+  const hiddenIdx = rand(3, 6);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 100).map(String),
+    prompt: `Every 3rd step the rule doubles`,
+    type: 'number'
+  };
+}
+
+function genNested() {
+  const outer = rand(2, 5);
+  const inner = rand(1, 3);
+  const seq = [];
+  for (let i = 0; i < 6; i++) seq.push(outer * (i + 1) + inner * i);
+  const hiddenIdx = rand(2, 5);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 100).map(String),
+    prompt: `Outer × position + Inner × offset`,
+    type: 'number'
+  };
+}
+
+function genAlternating() {
+  const stepA = rand(2, 6), stepB = rand(1, 4);
+  let a = rand(2, 8), b = rand(1, 5);
+  const seq = [];
+  for (let i = 0; i < 6; i++) {
+    if (i % 2 === 0) { seq.push(a); a += stepA; }
+    else { seq.push(b); b += stepB; }
+  }
+  const hiddenIdx = rand(2, 5);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 60).map(String),
+    prompt: `Alternating sequences — two interwoven rules`,
+    type: 'number'
+  };
+}
+
+function genRecursive() {
+  const fn = (prev, i) => prev + i * 2;
+  const start = rand(1, 5);
+  const seq = [start];
+  for (let i = 1; i < 6; i++) seq.push(fn(seq[i-1], i));
+  const hiddenIdx = rand(3, 5);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 100).map(String),
+    prompt: `f(n) = f(n-1) + 2n`,
+    type: 'number'
+  };
+}
+
+function genInverse() {
+  const step = rand(2, 5);
+  const end = rand(20, 40);
+  const seq = [];
+  for (let i = 0; i < 6; i++) seq.push(end - i * step);
+  const hiddenIdx = rand(2, 5);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 50).map(String),
+    prompt: `Sequence runs backward — find the gap`,
+    type: 'number'
+  };
+}
+
+function genCompound() {
+  const a = rand(2, 4), b = rand(1, 3), c = rand(1, 2);
+  const seq = [];
+  for (let i = 1; i <= 6; i++) seq.push(a * i * i + b * i + c);
+  const hiddenIdx = rand(2, 5);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 200).map(String),
+    prompt: `Quadratic pattern: a·n² + b·n + c`,
+    type: 'number'
+  };
+}
+
+function genFluxState() {
+  const rules = [2, 3, 5];
+  const seq = [rand(1, 5)];
+  for (let i = 1; i < 7; i++) {
+    const r = rules[Math.floor((i-1)/2) % rules.length];
+    seq.push(seq[i-1] + r);
+  }
+  const hiddenIdx = rand(3, 6);
+  const correct = seq[hiddenIdx];
+  const display = seq.map((v, i) => ({ val: i === hiddenIdx ? '?' : String(v), hidden: i === hiddenIdx }));
+  return {
+    display,
+    correct: String(correct),
+    options: makeOptions(correct, 0, 60).map(String),
+    prompt: `Rule shifts: +2, +3, +5 cycling every 2 steps`,
+    type: 'number'
+  };
+}
+
+// =================== RENDER ===================
+
+function nextPuzzle() {
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  state.locked = false;
+
+  const phase = getPhase();
+  state.maxTime = phase.time;
+  state.timeLeft = state.maxTime;
+
+  document.getElementById('phase-name').textContent = phase.name;
+  document.getElementById('phase-rule').textContent = phase.rule;
+
+  const puzzle = generatePuzzle();
+  state.puzzle = puzzle;
+  state.currentAnswer = puzzle.correct;
+
+  renderPuzzle(puzzle);
+  updateHUD();
+  startTimer();
+}
+
+function renderPuzzle(puzzle) {
+  const seqEl = document.getElementById('sequence-display');
+  seqEl.innerHTML = '';
+  puzzle.display.forEach(cell => {
+    const d = document.createElement('div');
+    d.className = 'seq-cell' + (cell.hidden ? ' hidden' : '') + (puzzle.type === 'shape' ? ' shape-cell' : '');
+    d.textContent = cell.val;
+    seqEl.appendChild(d);
+  });
+
+  document.getElementById('puzzle-prompt').textContent = puzzle.prompt;
+
+  const grid = document.getElementById('answer-grid');
+  grid.innerHTML = '';
+  puzzle.options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'ans-btn';
+    btn.textContent = opt;
+    btn.onclick = () => answer(btn, opt);
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('combo-display').textContent = '';
+}
+
+// =================== TIMER ===================
+
+function startTimer() {
+  const bar = document.getElementById('timer-bar');
+  const timeEl = document.getElementById('hud-time');
+
+  state.timerInterval = setInterval(() => {
+    state.timeLeft -= 0.1;
+    const pct = (state.timeLeft / state.maxTime) * 100;
+    bar.style.width = pct + '%';
+    bar.className = 'timer-bar' + (pct < 25 ? ' low' : '');
+    timeEl.textContent = Math.ceil(state.timeLeft);
+    timeEl.className = 'hud-val' + (state.timeLeft < 4 ? ' danger' : '');
+
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timerInterval);
+      handleWrong(null, true);
+    }
+  }, 100);
+}
+
+// =================== ANSWER LOGIC ===================
+
+function answer(btn, val) {
+  if (state.locked) return;
+  state.locked = true;
+  clearInterval(state.timerInterval);
+  state.totalAnswered++;
+
+  const correct = val === state.currentAnswer;
+
+  if (correct) {
+    btn.classList.add('correct');
+    handleCorrect(btn);
+  } else {
+    btn.classList.add('wrong');
+    // Reveal correct
+    document.querySelectorAll('.ans-btn').forEach(b => {
+      if (b.textContent === state.currentAnswer) b.classList.add('correct');
+    });
+    handleWrong(btn, false);
+  }
+
+  setTimeout(nextPuzzle, 900);
+}
+
+function handleCorrect(btn) {
+  state.totalCorrect++;
+  state.solved++;
+  state.streak++;
+  if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+
+  const timeBonus = Math.floor(state.timeLeft * 2);
+  const streakBonus = state.streak >= 5 ? Math.floor(state.streak * 5) : 0;
+  const basePoints = 10 * state.level;
+  state.score += basePoints + timeBonus + streakBonus;
+
+  // Flash + particle
+  flashFeedback(true);
+  spawnParticle(btn, '+' + (basePoints + timeBonus + streakBonus));
+
+  if (state.streak >= 3) {
+    document.getElementById('combo-display').textContent = `🔥 ×${state.streak} COMBO`;
+  }
+
+  state.phaseProgress++;
+  if (state.phaseProgress >= state.correctPerPhase) {
+    state.phaseProgress = 0;
+    levelUp();
+  } else {
+    updateHUD();
+  }
+}
+
+function handleWrong(btn, timeout) {
+  state.streak = 0;
+  state.lives--;
+  flashFeedback(false);
+
+  if (state.lives <= 0) {
+    setTimeout(gameOver, 600);
+  } else {
+    updateHUD();
+  }
+}
+
+function flashFeedback(correct) {
+  const el = document.getElementById('feedback-flash');
+  el.className = 'feedback-flash ' + (correct ? 'correct-flash' : 'wrong-flash');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 200);
+}
+
+function spawnParticle(refEl, text) {
+  const rect = refEl ? refEl.getBoundingClientRect() : { top: window.innerHeight/2, left: window.innerWidth/2 };
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.textContent = text;
+  p.style.left = (rect.left + rect.width/2) + 'px';
+  p.style.top = rect.top + 'px';
+  p.style.color = '#00f5c4';
+  document.body.appendChild(p);
+  setTimeout(() => p.remove(), 900);
+}
+
+// =================== LEVEL UP ===================
+
+const LEVEL_UP_MESSAGES = [
+  "New rule unlocked: Geometric multiplication sequences",
+  "Complexity increases: Fibonacci-like progressions",
+  "Advanced: Prime identification under pressure",
+  "Modular arithmetic enters the cipher",
+  "Shape sequences: spatial pattern recognition",
+  "Dual-rule mode: two constraints simultaneously",
+  "Mirror sequences: bilateral symmetry decoding",
+  "Skip rules: adaptive step tracking",
+  "Nested sequences: multi-layer extraction",
+  "Alternating interweave: two hidden sequences in one",
+  "Recursive functions: answer depends on prior state",
+  "Inverse mode: decode sequences in reverse",
+  "Compound rules: quadratic complexity",
+  "FLUX STATE: rules shift mid-sequence. No anchors.",
+];
+
+function levelUp() {
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  state.level++;
+  updateHUD();
+
+  const overlay = document.getElementById('lu-overlay');
+  document.getElementById('lu-title').textContent = 'PHASE ' + state.level;
+  document.getElementById('lu-phase-label').textContent = PHASES[Math.min(state.level-1, PHASES.length-1)].name;
+  document.getElementById('lu-new-rule').textContent = LEVEL_UP_MESSAGES[Math.min(state.level - 2, LEVEL_UP_MESSAGES.length - 1)];
+  overlay.classList.add('show');
+}
+
+function dismissLevelUp() {
+  document.getElementById('lu-overlay').classList.remove('show');
+  nextPuzzle();
+}
+
+// =================== GAME OVER ===================
+
+function gameOver() {
+  clearInterval(state.timerInterval);
+  showScreen('gameover');
+
+  document.getElementById('go-score').textContent = state.score;
+  document.getElementById('go-level').textContent = state.level;
+  document.getElementById('go-solved').textContent = state.solved;
+  document.getElementById('go-streak').textContent = state.bestStreak;
+  const acc = state.totalAnswered > 0 ? Math.round((state.totalCorrect/state.totalAnswered)*100) : 0;
+  document.getElementById('go-accuracy').textContent = acc + '%';
+
+  // IQ Badge
+  const badge = document.getElementById('iq-badge-display');
+  if (state.level >= 12) {
+    badge.innerHTML = '<div class="iq-badge iq-diamond">◆ FLUX MASTER</div>';
+  } else if (state.level >= 8) {
+    badge.innerHTML = '<div class="iq-badge iq-gold">★ CIPHER ELITE</div>';
+  } else if (state.level >= 5) {
+    badge.innerHTML = '<div class="iq-badge iq-silver">● PATTERN ADEPT</div>';
+  } else {
+    badge.innerHTML = '<div class="iq-badge iq-bronze">▲ INITIATE</div>';
+  }
+}
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+  const btns = document.querySelectorAll('.ans-btn:not(:disabled)');
+  if (e.key === '1' && btns[0]) btns[0].click();
+  if (e.key === '2' && btns[1]) btns[1].click();
+  if (e.key === '3' && btns[2]) btns[2].click();
+  if (e.key === '4' && btns[3]) btns[3].click();
+});
+</script>
+</body>
+</html>

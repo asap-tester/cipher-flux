@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CIPHER FLUX — Train Your Neural Patterns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cyan:#00e5ff;
+  --cyan2:rgba(0,229,255,0.18);
+  --mag:#ff2bd6;
+  --bg:#010307;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Orbitron',sans-serif;color:#d6f6ff}
+
+/* ── Canvas layer ── */
+canvas{position:fixed;inset:0;z-index:0}
+
+/* ── Dual perspective grids ── */
+.grid-h,.grid-v{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.18}
+.grid-h{
+  background:repeating-linear-gradient(0deg,transparent,transparent 59px,rgba(0,229,255,.55) 60px);
+  animation:gridSlideV 6s linear infinite;
+}
+.grid-v{
+  background:repeating-linear-gradient(90deg,transparent,transparent 59px,rgba(0,229,255,.35) 60px);
+  animation:gridSlideH 8s linear infinite;
+}
+@keyframes gridSlideV{to{background-position:0 60px}}
+@keyframes gridSlideH{to{background-position:60px 0}}
+
+/* ── Radar sweep ── */
+.radar{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(900px,130vw);height:min(900px,130vw);
+  border-radius:50%;z-index:2;pointer-events:none;
+  background:conic-gradient(from 0deg,rgba(0,229,255,0) 340deg,rgba(0,229,255,.22) 355deg,rgba(0,229,255,0) 360deg);
+  animation:radarSpin 4s linear infinite;
+}
+@keyframes radarSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+
+/* ── Scan beam ── */
+.scan-beam{
+  position:fixed;left:0;right:0;height:2px;z-index:3;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(0,229,255,.6),transparent);
+  animation:scanBeam 3s ease-in-out infinite;
+}
+@keyframes scanBeam{0%,100%{top:-5%}50%{top:105%}}
+
+/* ── Vignette ── */
+.vignette{position:fixed;inset:0;z-index:4;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 35%,rgba(1,3,7,.97) 100%)}
+
+/* ── Scanlines ── */
+.scanlines{position:fixed;inset:0;z-index:5;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,229,255,.03) 0 1px,transparent 1px 3px);
+  mix-blend-mode:overlay}
+
+/* ── HUD corners ── */
+.hud{position:fixed;inset:18px;z-index:6;pointer-events:none}
+.corner{position:absolute;width:44px;height:44px;border:1.5px solid var(--cyan);
+  box-shadow:0 0 14px rgba(0,229,255,.6);animation:cornerPulse 2.5s ease-in-out infinite}
+.tl{top:0;left:0;border-right:none;border-bottom:none}
+.tr{top:0;right:0;border-left:none;border-bottom:none}
+.bl{bottom:0;left:0;border-right:none;border-top:none}
+.br{bottom:0;right:0;border-left:none;border-top:none}
+@keyframes cornerPulse{50%{box-shadow:0 0 30px var(--cyan)}}
+
+/* ── HUD text ── */
+.ht{position:absolute;font-family:'Share Tech Mono',monospace;font-size:10px;
+  letter-spacing:.22em;color:rgba(0,229,255,.7);text-shadow:0 0 8px var(--cyan)}
+.htl{top:12px;left:56px}.htr{top:12px;right:56px;text-align:right}
+.hbl{bottom:12px;left:56px}.hbr{bottom:12px;right:56px;text-align:right}
+.blink{animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.15}}
+
+/* ── Side telemetry ── */
+.tele{position:fixed;top:50%;transform:translateY(-50%);z-index:6;
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.18em;
+  color:rgba(0,229,255,.38);line-height:2.2;pointer-events:none}
+.tele-l{left:20px;text-align:left}
+.tele-r{right:20px;text-align:right}
+
+/* ── Ticker ── */
+.ticker{position:fixed;z-index:7;left:0;right:0;
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.22em;
+  color:rgba(0,229,255,.35);overflow:hidden;white-space:nowrap;pointer-events:none}
+.ticker-top{top:60px}
+.ticker-bot{bottom:60px}
+.ticker-inner{display:inline-block;animation:tickerScroll 22s linear infinite}
+.ticker-inner2{display:inline-block;animation:tickerScroll2 28s linear infinite}
+@keyframes tickerScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes tickerScroll2{0%{transform:translateX(-50%)}100%{transform:translateX(0)}}
+
+/* ── Main stage ── */
+main{position:fixed;inset:0;z-index:8;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(20px,3vh,36px);text-align:center;padding:20px}
+
+/* ── Micro label ── */
+.micro{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.5em;
+  color:rgba(126,249,255,.5);text-transform:uppercase}
+
+/* ── Title ── */
+.title-wrap{position:relative;line-height:1}
+.title{
+  font-weight:900;font-size:clamp(3rem,10vw,7.5rem);
+  letter-spacing:.12em;text-transform:uppercase;
+  display:flex;gap:.15em;align-items:baseline;
+  filter:drop-shadow(0 0 30px rgba(0,229,255,.7));
+}
+.word-cipher{
+  color:#eafcff;position:relative;
+  animation:glitchCipher 5s infinite;
+}
+.word-flux{
+  color:var(--cyan);position:relative;
+  animation:glitchFlux 5s infinite 2.5s;
+  text-shadow:0 0 40px var(--cyan),0 0 80px rgba(0,229,255,.4);
+}
+
+/* Heavy alternating glitch on CIPHER */
+@keyframes glitchCipher{
+  0%,88%,100%{transform:none;clip-path:none;filter:none}
+  89%{transform:translate(-3px,1px) skewX(-6deg);clip-path:polygon(0 20%,100% 20%,100% 45%,0 45%);filter:hue-rotate(90deg)}
+  90%{transform:translate(3px,-1px);clip-path:polygon(0 55%,100% 55%,100% 80%,0 80%);filter:hue-rotate(-40deg) brightness(2)}
+  91%{transform:none;clip-path:none;filter:none}
+  92%{transform:translate(-5px,2px) skewX(4deg);color:var(--mag);filter:brightness(1.8)}
+  93%{transform:none;color:#eafcff;filter:none}
+}
+/* Heavy alternating glitch on FLUX */
+@keyframes glitchFlux{
+  0%,88%,100%{transform:none;clip-path:none;filter:none;color:var(--cyan)}
+  89%{transform:translate(4px,-2px) skewX(8deg);clip-path:polygon(0 10%,100% 10%,100% 40%,0 40%);color:var(--mag);filter:brightness(2)}
+  90%{transform:translate(-2px,2px);clip-path:polygon(0 60%,100% 60%,100% 85%,0 85%);filter:hue-rotate(160deg)}
+  91%{transform:none;clip-path:none;color:var(--cyan);filter:none}
+  92%{transform:translate(6px,0) skewX(-5deg);filter:brightness(3) hue-rotate(-90deg)}
+  93%{transform:none;filter:none}
+}
+
+/* Ghost layers for glitch depth */
+.word-cipher::before,.word-cipher::after{
+  content:attr(data-text);position:absolute;top:0;left:0;width:100%;
+}
+.word-cipher::before{
+  color:var(--mag);animation:ghostA 5s infinite;
+  clip-path:polygon(0 30%,100% 30%,100% 50%,0 50%);
+}
+.word-cipher::after{
+  color:var(--cyan);animation:ghostB 5s infinite;
+  clip-path:polygon(0 60%,100% 60%,100% 75%,0 75%);
+}
+@keyframes ghostA{
+  0%,87%,94%,100%{transform:none;opacity:0}
+  88%{transform:translate(-4px,0);opacity:.9}
+  89%{transform:translate(4px,0);opacity:.7}
+  90%{transform:none;opacity:0}
+}
+@keyframes ghostB{
+  0%,89%,95%,100%{transform:none;opacity:0}
+  90%{transform:translate(5px,0);opacity:.8}
+  91%{transform:translate(-3px,0);opacity:.6}
+  92%{transform:none;opacity:0}
+}
+
+/* ── Tagline ── */
+.tagline{
+  font-family:'Share Tech Mono',monospace;
+  font-size:clamp(.7rem,1.8vw,1rem);letter-spacing:.35em;
+  color:rgba(126,249,255,.75);text-transform:uppercase;
+}
+
+/* ── Stats row ── */
+.stats{display:flex;gap:clamp(24px,4vw,60px);align-items:center}
+.stat{text-align:center}
+.stat-val{
+  font-size:clamp(1.2rem,2.5vw,1.8rem);font-weight:900;
+  color:var(--cyan);text-shadow:0 0 18px var(--cyan);
+  animation:statPulse 2s ease-in-out infinite;
+}
+.stat-val:nth-child(1){animation-delay:0s}
+.stat:nth-child(3) .stat-val{animation-delay:.4s}
+.stat:nth-child(5) .stat-val{animation-delay:.8s}
+@keyframes statPulse{50%{text-shadow:0 0 36px var(--cyan),0 0 60px rgba(0,229,255,.3)}}
+.stat-label{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.25em;
+  color:rgba(0,229,255,.45);margin-top:4px}
+.stat-divider{width:1px;height:40px;background:linear-gradient(to bottom,transparent,rgba(0,229,255,.4),transparent)}
+
+/* ── Feature pills ── */
+.pills{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:600px}
+.pill{
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.2em;
+  border:1px solid rgba(0,229,255,.25);padding:6px 16px;border-radius:2px;
+  color:rgba(0,229,255,.6);background:rgba(0,229,255,.04);
+  text-transform:uppercase;
+  transition:all .2s;
+}
+.pill:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.09)}
+
+/* ── CTA button ── */
+.cta-wrap{position:relative}
+.cta{
+  display:inline-block;
+  font-family:'Orbitron',sans-serif;font-weight:900;
+  font-size:clamp(.85rem,2vw,1.15rem);letter-spacing:.35em;
+  color:var(--bg);background:var(--cyan);
+  padding:18px clamp(40px,8vw,80px);
+  text-decoration:none;border:none;cursor:pointer;
+  position:relative;overflow:hidden;
+  clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);
+  transition:filter .2s;
+  box-shadow:0 0 40px rgba(0,229,255,.5),0 0 80px rgba(0,229,255,.2);
+  animation:ctaPulse 2s ease-in-out infinite;
+}
+@keyframes ctaPulse{
+  0%,100%{box-shadow:0 0 40px rgba(0,229,255,.5),0 0 80px rgba(0,229,255,.2)}
+  50%{box-shadow:0 0 60px rgba(0,229,255,.8),0 0 120px rgba(0,229,255,.4)}
+}
+/* Shimmer sweep */
+.cta::before{
+  content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);
+  animation:shimmer 2.4s ease-in-out infinite;
+}
+@keyframes shimmer{0%{left:-100%}60%,100%{left:160%}}
+/* Glitch flicker on button */
+.cta::after{
+  content:'PLAY NOW';position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',sans-serif;font-weight:900;
+  font-size:clamp(.85rem,2vw,1.15rem);letter-spacing:.35em;
+  color:var(--mag);opacity:0;
+  animation:btnGlitch 6s infinite;
+}
+@keyframes btnGlitch{
+  0%,94%,100%{opacity:0;transform:none}
+  95%{opacity:1;transform:translate(3px,0) skewX(-8deg)}
+  96%{opacity:0;transform:none}
+  97%{opacity:.7;transform:translate(-3px,0)}
+  98%{opacity:0}
+}
+.cta:hover{filter:brightness(1.2) saturate(1.3)}
+
+/* ── Sub note ── */
+.sub{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.3em;
+  color:rgba(0,229,255,.3);margin-top:-8px}
+
+/* ── Flash overlay ── */
+.flash{position:fixed;inset:0;background:#fff;z-index:99;opacity:0;pointer-events:none}
+.flash.go{animation:flashOut .6s ease forwards}
+@keyframes flashOut{0%{opacity:0}30%{opacity:.9}100%{opacity:0}}
+
+/* ── Glitch slice ── */
+.gslice{position:fixed;left:0;right:0;height:6px;background:var(--cyan);
+  z-index:10;opacity:0;pointer-events:none;mix-blend-mode:screen;
+  box-shadow:0 0 10px var(--cyan)}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div class="grid-h"></div>
+<div class="grid-v"></div>
+<div class="radar"></div>
+<div class="scan-beam"></div>
+<div class="vignette"></div>
+<div class="scanlines"></div>
+
+<!-- HUD corners -->
+<div class="hud">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <div class="ht htl">◉ SYS.ONLINE <span class="blink">▮</span></div>
+  <div class="ht htr">NODE.0xCF2A // SECTOR 9X</div>
+  <div class="ht hbl">FLUX <span id="flx">03.7</span> Hz · <span id="ops">1024</span> OPS</div>
+  <div class="ht hbr">UPLINK <span class="blink">▮▮▮▮▮</span></div>
+</div>
+
+<!-- Side telemetry -->
+<div class="tele tele-l" id="tele-l"></div>
+<div class="tele tele-r" id="tele-r"></div>
+
+<!-- Ticker top -->
+<div class="ticker ticker-top">
+  <span class="ticker-inner">
+    CIPHER.FLUX v2.9 ··· NEURAL PATTERN ENGINE ··· 15 COGNITIVE PHASES ··· ADAPTIVE DIFFICULTY ··· IQ ESCALATION PROTOCOL ··· TRAIN YOUR MIND ··· CIPHER.FLUX v2.9 ··· NEURAL PATTERN ENGINE ··· 15 COGNITIVE PHASES ··· ADAPTIVE DIFFICULTY ···&nbsp;
+    CIPHER.FLUX v2.9 ··· NEURAL PATTERN ENGINE ··· 15 COGNITIVE PHASES ··· ADAPTIVE DIFFICULTY ··· IQ ESCALATION PROTOCOL ··· TRAIN YOUR MIND ··· CIPHER.FLUX v2.9 ··· NEURAL PATTERN ENGINE ··· 15 COGNITIVE PHASES ··· ADAPTIVE DIFFICULTY ···&nbsp;
+  </span>
+</div>
+<!-- Ticker bottom -->
+<div class="ticker ticker-bot">
+  <span class="ticker-inner2">
+    ··· OPERATORS ONLINE: <span id="ops2">1,337</span> ··· HIGHEST PHASE CLEARED: 15 ··· FLUX STATE UNLOCKED ··· PATTERN RECOGNITION · LOGIC · RECURSION · COMPOUND RULES ··· OPERATORS ONLINE: <span id="ops3">1,337</span> ··· HIGHEST PHASE CLEARED: 15 ···&nbsp;
+    ··· OPERATORS ONLINE: <span id="ops4">1,337</span> ··· HIGHEST PHASE CLEARED: 15 ··· FLUX STATE UNLOCKED ··· PATTERN RECOGNITION · LOGIC · RECURSION · COMPOUND RULES ··· OPERATORS ONLINE: <span id="ops5">1,337</span> ··· HIGHEST PHASE CLEARED: 15 ···&nbsp;
+  </span>
+</div>
+
+<div class="gslice" id="gslice"></div>
+<div class="flash" id="flash"></div>
+
+<main>
+  <div class="micro">// CIPHER.FLUX // NEURAL PATTERN ENGINE // v2.9.0</div>
+
+  <div class="title-wrap">
+    <div class="title">
+      <span class="word-cipher" data-text="CIPHER">CIPHER</span>
+      <span class="word-flux" data-text="FLUX">FLUX</span>
+    </div>
+  </div>
+
+  <div class="tagline">Train Your Neural Patterns · Escalate Your Intelligence</div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val">15</div>
+      <div class="stat-label">Cognitive Phases</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-val" id="ops-stat">∞</div>
+      <div class="stat-label">Puzzle Variants</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-val">0</div>
+      <div class="stat-label">Pay to Win</div>
+    </div>
+  </div>
+
+  <div class="pills">
+    <div class="pill">Arithmetic Flux</div>
+    <div class="pill">Prime Decoding</div>
+    <div class="pill">Fibonacci Chains</div>
+    <div class="pill">Dual-Rule Logic</div>
+    <div class="pill">Recursive Functions</div>
+    <div class="pill">Shape Sequences</div>
+    <div class="pill">Modular Arithmetic</div>
+    <div class="pill">Flux State</div>
+  </div>
+
+  <div class="cta-wrap">
+    <a class="cta" href="game.html" id="play-btn" onclick="launch(event)">PLAY NOW</a>
+  </div>
+  <div class="sub">// ALL AGES · ALL DEVICES · ZERO INSTALL</div>
+</main>
+
+<script>
+/* ── Hyperspace warp canvas ── */
+const cv=document.getElementById('c'),x=cv.getContext('2d');
+let W,H,CX,CY,DPR=Math.min(devicePixelRatio||1,2);
+function rs(){
+  W=innerWidth;H=innerHeight;
+  cv.width=W*DPR;cv.height=H*DPR;
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  x.setTransform(DPR,0,0,DPR,0,0);
+  CX=W/2;CY=H/2;
+}
+addEventListener('resize',rs);rs();
+
+const FOCAL=280,FAR=1500,SPEED=12;
+const stars=[];
+function spawnStar(s){
+  const a=Math.random()*Math.PI*2,r=(Math.random()*.9+.1)*Math.max(W,H);
+  s.x=Math.cos(a)*r;s.y=Math.sin(a)*r;
+  s.z=FAR*(.2+Math.random()*.8);s.pz=s.z;
+}
+for(let i=0;i<280;i++){const s={};spawnStar(s);stars.push(s)}
+
+const rings=[];
+for(let i=0;i<16;i++) rings.push({z:FAR*(i/16)+10});
+
+function proj(px,py,pz){const k=FOCAL/pz;return{sx:px*k+CX,sy:py*k+CY,k}}
+
+function draw(){
+  x.fillStyle='rgba(1,3,7,.26)';
+  x.fillRect(0,0,W,H);
+
+  for(const r of rings){
+    r.z-=SPEED*.85;if(r.z<2)r.z=FAR;
+    const k=FOCAL/r.z,rad=360*k;
+    if(rad<2||rad>Math.max(W,H)*1.5)continue;
+    const a=Math.min(.5,(1-r.z/FAR)*.7);
+    x.strokeStyle=`rgba(0,229,255,${a})`;
+    x.lineWidth=1+(1-r.z/FAR)*1.8;
+    x.shadowColor='rgba(0,229,255,.8)';x.shadowBlur=10*(1-r.z/FAR);
+    x.beginPath();x.arc(CX,CY,rad,0,Math.PI*2);x.stroke();
+    if(r.z<FAR*.55){
+      const ticks=20;
+      for(let i=0;i<ticks;i++){
+        const ang=(i/ticks)*Math.PI*2;
+        const x1=CX+Math.cos(ang)*rad,y1=CY+Math.sin(ang)*rad;
+        const x2=CX+Math.cos(ang)*(rad+5*(1-r.z/FAR)*4);
+        const y2=CY+Math.sin(ang)*(rad+5*(1-r.z/FAR)*4);
+        x.beginPath();x.moveTo(x1,y1);x.lineTo(x2,y2);x.stroke();
+      }
+    }
+  }
+  x.shadowBlur=0;
+
+  for(const s of stars){
+    s.pz=s.z;s.z-=SPEED;
+    if(s.z<2){spawnStar(s);continue}
+    const p1=proj(s.x,s.y,s.pz),p2=proj(s.x,s.y,s.z);
+    if(p2.sx<-20||p2.sx>W+20||p2.sy<-20||p2.sy>H+20){spawnStar(s);continue}
+    const depth=1-s.z/FAR,a=Math.min(1,depth*1.4),r=Math.max(.4,depth*2.2);
+    x.strokeStyle=`rgba(126,249,255,${a*.7})`;
+    x.lineWidth=r;
+    x.beginPath();x.moveTo(p1.sx,p1.sy);x.lineTo(p2.sx,p2.sy);x.stroke();
+    x.fillStyle=`rgba(220,252,255,${a})`;
+    x.beginPath();x.arc(p2.sx,p2.sy,r,0,Math.PI*2);x.fill();
+  }
+
+  const g=x.createRadialGradient(CX,CY,0,CX,CY,200);
+  g.addColorStop(0,'rgba(0,229,255,.3)');
+  g.addColorStop(.4,'rgba(0,229,255,.06)');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=g;x.fillRect(CX-220,CY-220,440,440);
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+/* ── Live HUD values ── */
+setInterval(()=>{
+  document.getElementById('flx').textContent=(1.8+Math.random()*2.4).toFixed(1);
+  document.getElementById('ops').textContent=Math.floor(900+Math.random()*500);
+},350);
+
+/* ── Fake live operator count ── */
+let opCount=1287;
+setInterval(()=>{
+  opCount+=Math.floor(Math.random()*3)-1;
+  if(opCount<1200)opCount=1200;
+  const fmt=opCount.toLocaleString();
+  ['ops2','ops3','ops4','ops5'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.textContent=fmt;
+  });
+},2000);
+
+/* ── Side telemetry ── */
+const leftLines=[
+  'SYN.RATE....98.7%',
+  'PATTERN.IDX.....ON',
+  'CORTEX.MOD..LINKED',
+  'FLUX.DRIFT....0.02',
+  'CIPHER.KEY..ACTIVE',
+  'NEURAL.SYNC...FULL',
+  'ENTROPY.....12.4db',
+  'UPLINK.PING....3ms',
+];
+const rightLines=[
+  'PHASE.MAX......15',
+  'DIFF.SCALE...AUTO',
+  'IQ.DELTA....+0.08',
+  'COMBO.CAP......×9',
+  'TIME.WARP...ARMED',
+  'GLITCH.SYS...LIVE',
+  'ADAPT.AI....READY',
+  'FLUX.STATE....ARM',
+];
+function renderTele(){
+  document.getElementById('tele-l').innerHTML=leftLines.map(l=>`<div>${l}</div>`).join('');
+  document.getElementById('tele-r').innerHTML=rightLines.map(l=>`<div>${l}</div>`).join('');
+}
+renderTele();
+setInterval(()=>{
+  const idx=Math.floor(Math.random()*leftLines.length);
+  const vals=['ON','OFF','LIVE','SYNC','ARMED','READY','ACTIVE','--'];
+  leftLines[idx]=leftLines[idx].replace(/[A-Z\-\.]+$/,vals[Math.floor(Math.random()*vals.length)]);
+  renderTele();
+},1200);
+
+/* ── Random glitch slices ── */
+const gs=document.getElementById('gslice');
+setInterval(()=>{
+  if(Math.random()<.15){
+    gs.style.top=(Math.random()*100)+'%';
+    gs.style.height=(2+Math.random()*12)+'px';
+    gs.style.opacity=.8;
+    setTimeout(()=>gs.style.opacity=0,70);
+  }
+},400);
+
+/* ── Launch with flash ── */
+function launch(e){
+  e.preventDefault();
+  document.getElementById('flash').classList.add('go');
+  setTimeout(()=>window.location.href='game.html',480);
+}
+</script>
+</body>
+</html>
